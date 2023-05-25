@@ -44,3 +44,8 @@ models/*.mlpackage
 bindings/java/.gradle/
 bindings/java/.idea/
 .idea/
+
+# Nix/direnv
+.direnv
+.envrc
+result

@@ -54,6 +54,8 @@ option(WHISPER_NO_AVX2                "whisper: disable AVX2" OFF)
 option(WHISPER_NO_FMA                 "whisper: disable FMA"  OFF)
 option(WHISPER_NO_F16C                "whisper: disable F16c" OFF)
 
+option(WHISPER_OPENVINO               "whisper: support for OpenVINO" OFF)
+
 if (APPLE)
     option(WHISPER_NO_ACCELERATE         "whisper: disable Accelerate framework" OFF)
     option(WHISPER_COREML                "whisper: enable Core ML framework"     OFF)
@@ -182,7 +184,7 @@ if (WHISPER_CLBLAST)
     if (CLBlast_FOUND)
         message(STATUS "CLBlast found")
 
-        set(GGML_OPENCL_SOURCES ggml-opencl.c ggml-opencl.h)
+        set(GGML_OPENCL_SOURCES ggml-opencl.cpp ggml-opencl.h)
 
         add_compile_definitions(GGML_USE_CLBLAST)
 
@@ -190,6 +192,10 @@ if (WHISPER_CLBLAST)
     else()
         message(WARNING "CLBlast not found")
     endif()
+endif()
+
+if( WHISPER_OPENVINO )
+    find_package(OpenVINO REQUIRED COMPONENTS Runtime)
 endif()
 
 # compiler flags
@@ -297,6 +303,24 @@ if (WHISPER_COREML)
         )
 endif()
 
+if (WHISPER_OPENVINO)
+    set(TARGET whisper.openvino)
+
+    add_library(${TARGET} OBJECT
+        openvino/whisper-openvino-encoder.h
+        openvino/whisper-openvino-encoder.cpp
+        )
+
+    target_include_directories(${TARGET} PUBLIC
+        .
+        )
+
+    set_property(TARGET ${TARGET} PROPERTY POSITION_INDEPENDENT_CODE ON)
+    set(WHISPER_EXTRA_FLAGS ${WHISPER_EXTRA_FLAGS} -DWHISPER_USE_OPENVINO)
+
+    target_link_libraries(${TARGET} PRIVATE openvino::runtime)
+endif()
+
 #
 # whisper - this is the main library of the project
 #
@@ -320,6 +344,10 @@ target_include_directories(${TARGET} PUBLIC
 
 if (WHISPER_COREML)
     target_link_libraries(${TARGET} PRIVATE whisper.coreml)
+endif()
+
+if (WHISPER_OPENVINO)
+    target_link_libraries(${TARGET} PRIVATE whisper.openvino)
 endif()
 
 if (MSVC)
